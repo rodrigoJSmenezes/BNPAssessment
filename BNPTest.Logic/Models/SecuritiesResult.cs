@@ -2,7 +2,6 @@
 {
     public class SecuritiesResult
     {
-        public List<Security> Securities{ get; set; }
-        public string Status { get; set; }
+        public List<SecurityResult> Securities { get; set; }
     }
 }

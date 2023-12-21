@@ -24,26 +24,43 @@ namespace BNPTest.Logic.Models
             NullOrEmptyValidations(request);
 
             //Verify if ISIN code is valid
-            request.Securities.ForEach(x => IsIsinValid(x));
+            var securities = request.Securities.Select(security => IsIsinValid(security));
+                
 
             //Creating task to run in parallel
-            Parallel.ForEach(request.Securities, async security => await RetrieveAndSaveSecurityPrice(security));
+            Parallel.ForEach(securities, async security =>
+            {
+                if (security.Status)
+                {
+                    security.Price = await RetrieveSecurityPrice(security.ISIN);
+
+                    _securityRepository.Save(security);
+                }
+            });
 
             //Filling result
             var result = new SecuritiesResult
             {
-                Securities = request.Securities,
-                Status = "OK"
+                Securities = securities.ToList()
             };
 
-            //returnin
+            //return
             return result;
         }
 
-        private void IsIsinValid(Security x)
+        private SecurityResult IsIsinValid(Security security)
         {
+            var result = new SecurityResult(security);
+
             //Validatin for valid ISIN code
-            if (x.ISIN.Length != 12) throw new ArgumentException($"{x.ISIN} is not a valid ISIN code", nameof(x.ISIN));
+            if (security.ISIN.Length != 12)
+            {
+                result.Message.Add($"{security.ISIN} is not a valid ISIN code");
+            }
+
+            result.Status = !result.Message.Any();
+
+            return result;
         }
 
         private void NullOrEmptyValidations(SecuritiesRequest request)
@@ -58,12 +75,10 @@ namespace BNPTest.Logic.Models
             if (request.Securities.Count == 0) throw new ArgumentException($"{nameof(request.Securities)} cannot be empty", nameof(request));
         }
 
-        private async Task RetrieveAndSaveSecurityPrice(Security security)
+        private async Task<decimal> RetrieveSecurityPrice(string isin)
         {
             //Fake method to represent an HttpClient request. e.g: await httpClient.GetAsync(url)
-            security.Price = await Task.FromResult<decimal>(10);
-
-            _securityRepository.Save(security);
+            return await Task.FromResult<decimal>(10);
         }
     }
 }
